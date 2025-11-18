@@ -114,6 +114,74 @@ a `loopEnd` property to signal that the loop has ended. For example:
 
 <!-- End Liquid Code Sample{% endraw %} -->
 
+#### Nested Arrays in Loops
+
+For segments that need to be generated multiple times from a nested array within
+a loop iteration, use the `repeatFor` property. This is useful for scenarios like
+generating LQ segments (Remittance Advice Remark Codes) that follow CAS segments
+for adjustments.
+
+When a segment has a `repeatFor` property, it will be generated once for each item
+in the nested array specified by the `repeatFor` expression. The expression should
+reference the nested array property using the same mapping approach as other loop
+elements (e.g., using `map` and `in_loop` filters for LiquidJS).
+
+**Example with CAS and LQ segments for adjustments:**
+
+<!-- {% raw %}Start Liquid Code Sample -->
+
+```json
+{
+  "tag": "CAS",
+  "elements": [
+    "{{ input.adjustments | map: 'groupCode' | in_loop }}",
+    "{{ input.adjustments | map: 'reasonCode' | in_loop }}",
+    "{{ input.adjustments | map: 'amount' | in_loop }}"
+  ],
+  "loopStart": true,
+  "loopLength": "{{ input.adjustments | size }}"
+},
+{
+  "tag": "LQ",
+  "elements": [
+    "RX",
+    "{{ input.adjustments | map: 'remarks' | in_loop }}"
+  ],
+  "repeatFor": "{{ input.adjustments | map: 'remarks' | in_loop }}"
+},
+{
+  "loopEnd": true
+}
+```
+
+<!-- End Liquid Code Sample{% endraw %} -->
+
+For input data:
+```json
+{
+  "adjustments": [
+    {
+      "groupCode": "PI",
+      "reasonCode": "16",
+      "amount": 120,
+      "remarks": ["N1", "N77"]
+    }
+  ]
+}
+```
+
+This will generate:
+```
+CAS*PI*16*120~
+LQ*RX*N1~
+LQ*RX*N77~
+```
+
+The `repeatFor` expression should reference the nested array property that contains
+the items to iterate over. Within the segment's `elements`, you can reference the
+nested array using the same expression, and it will automatically resolve to the
+current nested item during iteration.
+
 #### Liquid Macro API
 
 The syntax for mapping is pure [Liquid](https://liquidjs.com/) with some
@@ -194,6 +262,37 @@ a `loopEnd` property to signal that the loop has ended. For example:
 {
   "tag": "G69",
   "elements": ["macro['map'](macro['json'](input['orderItems'])['val'], 'title')['val']"],
+  "loopEnd": true
+})
+```
+
+#### Nested Arrays in Loops (Legacy Macro)
+
+The `repeatFor` property is also supported with the legacy macro engine. Use it
+to generate multiple segments from a nested array within a loop iteration.
+
+**Example with CAS and LQ segments for adjustments:**
+
+```json
+({
+  "tag": "CAS",
+  "elements": [
+    "macro['map'](input['adjustments'], 'groupCode')['val']",
+    "macro['map'](input['adjustments'], 'reasonCode')['val']",
+    "macro['map'](input['adjustments'], 'amount')['val']"
+  ],
+  "loopStart": true,
+  "loopLength": "macro['length'](input['adjustments'])['val']"
+},
+{
+  "tag": "LQ",
+  "elements": [
+    "RX",
+    "macro['map'](input['adjustments'], 'remarks')['val']"
+  ],
+  "repeatFor": "macro['map'](input['adjustments'], 'remarks')['val']"
+},
+{
   "loopEnd": true
 })
 ```

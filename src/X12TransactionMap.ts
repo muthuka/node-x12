@@ -485,19 +485,105 @@ export class X12TransactionMap {
 
       for (let i = 0; i < length; i += 1) {
         lp.forEach((segment) => {
-          const elements = [];
+          // Check if this segment has a repeatFor property for nested arrays
+          if (segment.repeatFor !== undefined) {
+            // Resolve the repeatFor expression to get the nested array for current loop index
+            const nestedArrayExpr = segment.repeatFor;
+            let nestedArray: any[] = [];
 
-          for (const segElement of segment.elements) {
-            const resolved = resolveKey(segElement);
-
-            if (Array.isArray(resolved)) {
-              elements.push(resolved[i]);
+            // Resolve the repeatFor expression to get array of nested arrays
+            let allNestedArrays: any = null;
+            if (typeof liquidjs !== "undefined") {
+              const result: any = liquidjs.parseAndRenderSync(
+                nestedArrayExpr,
+                { input },
+              );
+              allNestedArrays = nestedArrayExpr.indexOf("in_loop }}") > -1
+                ? JSON.parse(result)
+                : result;
             } else {
-              elements.push(resolved);
+              const clean = /(^(`\${)*(input|macro)\[.*(}`)*$)/g;
+              if (clean.test(nestedArrayExpr)) {
+                // eslint-disable-next-line no-eval
+                allNestedArrays = eval(nestedArrayExpr);
+              }
             }
-          }
 
-          tx.addSegment(segment.tag, elements);
+            // Extract the nested array for the current loop index
+            if (Array.isArray(allNestedArrays) && allNestedArrays.length > i) {
+              nestedArray = Array.isArray(allNestedArrays[i])
+                ? allNestedArrays[i]
+                : [allNestedArrays[i]];
+            } else if (Array.isArray(allNestedArrays)) {
+              nestedArray = allNestedArrays;
+            } else {
+              nestedArray = [];
+            }
+
+            // Generate one segment for each item in the nested array
+            for (let j = 0; j < nestedArray.length; j += 1) {
+              const elements = [];
+
+              for (const segElement of segment.elements) {
+                let resolved = resolveKey(segElement);
+
+                // Handle arrays from parent loop context - get i-th element
+                if (Array.isArray(resolved)) {
+                  // If this is an array of arrays (from map filter with in_loop),
+                  // get the i-th element which is the nested array for current loop index
+                  if (resolved.length > i && Array.isArray(resolved[i])) {
+                    // This is the nested array for current loop index, get j-th element
+                    if (resolved[i].length > j) {
+                      elements.push(resolved[i][j]);
+                    } else {
+                      elements.push("");
+                    }
+                  } else if (resolved.length > i) {
+                    // Single-level array, get i-th element
+                    resolved = resolved[i];
+                    // If the result is still an array and we need j-th element
+                    if (Array.isArray(resolved) && resolved.length > j) {
+                      elements.push(resolved[j]);
+                    } else {
+                      elements.push(resolved);
+                    }
+                  } else {
+                    elements.push("");
+                  }
+                } else {
+                  // For non-array values, check if the expression references the nested array
+                  // If the expression matches the repeatFor expression, use the nested item
+                  if (
+                    typeof resolved === "string" &&
+                    segElement === nestedArrayExpr
+                  ) {
+                    // This element directly references the nested array, use current item
+                    elements.push(nestedArray[j]);
+                  } else {
+                    // Use the resolved value as-is
+                    elements.push(resolved);
+                  }
+                }
+              }
+
+              tx.addSegment(segment.tag, elements);
+            }
+          } else {
+            // Standard segment processing (no repeatFor)
+            const elements = [];
+
+            for (const segElement of segment.elements) {
+              const resolved = resolveKey(segElement);
+
+              if (Array.isArray(resolved)) {
+                elements.push(resolved[i]);
+              } else {
+                elements.push(resolved);
+              }
+            }
+
+            tx.addSegment(segment.tag, elements);
+          }
         });
       }
     };
