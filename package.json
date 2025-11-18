@@ -1,0 +1,42 @@
+{
+  "name": "node-x12",
+  "version": "1.9.0",
+  "description": "ASC X12 parser, generator, query engine, and mapper; now with support for streams.",
+  "module": "./npm/esm/mod.js",
+  "main": "./npm/script/mod.js",
+  "types": "./npm/types/mod.d.ts",
+  "keywords": [
+    "x12",
+    "edi",
+    "ansi",
+    "asc",
+    "ecommerce"
+  ],
+  "homepage": "https://github.com/muthuka/node-x12#readme",
+  "bugs": "https://github.com/muthuka/node-x12/issues",
+  "license": "MIT",
+  "author": "Aaron Huggins <aaron.huggins@runbox.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/muthuka/node-x12.git"
+  },
+  "exports": {
+    ".": {
+      "import": "./npm/esm/mod.js",
+      "require": "./npm/script/mod.js",
+      "types": "./npm/types/mod.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "deno run -A scripts/build_npm.ts",
+    "test": "node npm/test_runner.js"
+  },
+  "dependencies": {
+    "liquidjs": "^9.43.0"
+  },
+  "devDependencies": {
+    "@deno/shim-deno": "~0.4.3",
+    "@types/node": "16.11.26",
+    "chalk": "4.1.2"
+  }
+}
